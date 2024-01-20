@@ -1,0 +1,340 @@
+---
+title: "Cars Project"
+output: 
+  word_document: 
+    fig_caption: yes
+    keep_md: yes
+    toc: yes
+---
+
+Loading of Libraries
+```{r }
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(corrplot)
+library(caTools)
+library(DMwR)
+library(caret)
+library(car)
+library(class)
+library(e1071)
+library(ipred)
+library(rpart)
+library(gbm)
+```
+Importing Data
+```{r Import Data}
+## set working directory
+setwd("D:/PGP-DSBA/4 - Predictive/Week5")
+cars = read.csv("Cars-dataset.csv", header=TRUE)
+dim(cars)
+```
+Structure of Data
+```{r }
+str(cars)
+```
+Engineer, MBA and License converted to factor
+```{r }
+cars$Engineer = as.factor(as.character(cars$Engineer))
+cars$MBA = as.factor(as.character(cars$MBA))
+cars$license = as.factor(as.character(cars$license))
+str(cars)
+summary(cars)
+```
+Labeling Engineer, MBA and Licenes
+```{r }
+cars$Engineer = factor(cars$Engineer, labels = c("Non-Engineer","Engineer"))
+cars$MBA = factor(cars$MBA, labels = c("Non-MBA","MBA"))
+cars$license = factor(cars$license, labels = c("No-License","License"))
+summary(cars)
+```
+replacing the N/A value by Non-MBA
+```{r }
+sum(is.na(cars))
+cars[is.na(cars)] = "Non-MBA"
+summary(cars)
+```
+Value of Car is 1 others 0 
+```{r }
+cars$Transport = ifelse(cars$Transport =="Car",1,0)
+cars$Transport = as.factor(cars$Transport)
+cars$Transport = factor(cars$Transport, labels = c("No","Yes"))
+table(cars$Transport)
+```
+```{r REsponse Rate}
+response_rate <- prop.table(table(cars$Transport))
+response_rate
+```
+```{r Univariate Analysis - Transport}
+summary(cars$Transport)
+plot(cars$Transport, col="blue", main = "Bar Plot for Cars Transport")
+```
+
+```{r Univariate Analysis - Age}
+summary(cars$Age)
+par(mfrow=c(1,2))
+hist(cars$Age,col='red', main='Age of All Employees',xlab='Age')
+boxplot(cars$Age, col = 'Pink', main = 'Box plot of Age')
+```
+
+```{r Univariate Analysis - Gender}
+summary(cars$Gender)
+plot(cars$Gender, col="cyan", main = "Bar Plot for Gender")
+```
+
+```{r Univariate Analysis - Engineer}
+summary(cars$Engineer)
+plot(cars$Engineer, col="green", main = "Bar Plot for MBA")
+```
+
+```{r Univariate Analysis - MBA}
+summary(cars$MBA)
+plot(cars$MBA, col="yellow", main = "Bar Plot for MBA")
+```
+
+```{r Univariate Analysis - Work Experience}
+summary(cars$Work.Exp)
+par(mfrow=c(1,2))
+hist(cars$Work.Exp,col='Blue', main = 'Work Experience of All Employees',xlab='Work Experience')
+boxplot(cars$Work.Exp, col = 'Red', main = 'Box plot of Work Experience')
+### More Juniors than Seniors
+```
+
+```{r Univariate Analysis - Salary}
+summary(cars$Salary)
+par(mfrow=c(1,2))
+hist(cars$Salary,col='blue', main='Salary of All Employees',xlab='Salary')
+boxplot(cars$Salary, col = 'red', main = 'Box plot of Salary')
+```
+
+```{r Univariate Analysis - Distance}
+summary(cars$Distance)
+par(mfrow=c(1,2))
+hist(cars$Distance,col='red', main='Distance for All Employees',xlab='Distance')
+boxplot(cars$Distance, col = 'Pink', main = 'Box plot of Distance')
+```
+
+```{r Univariate Analysis - License}
+summary(cars$license)
+plot(cars$license, col="black", main = "Bar Plot for License")
+```
+
+```{r Bivariate Analysis - Age vs Transport}
+boxplot(Age~Transport,data=cars,horizontal=FALSE,col=c('blue','red'),main='Box Plot Age vs Transport')
+```
+
+```{r Bivariate Analysis - Gender vs Transport}
+p1 = ggplot(cars, aes(Gender,fill= Transport)) + geom_bar(stat = "count", position = "dodge") + geom_label(stat = "count", aes(label= ..count..), 
+             size = 3, position = position_dodge(width = 0.9), vjust=-0.15)
+grid.arrange(p1)
+```
+
+```{r Bivariate Analysis - Engineer vs Transport}
+p2 = ggplot(cars, aes(Engineer,fill= Transport)) + geom_bar(stat = "count", position = "dodge") + geom_label(stat = "count", aes(label= ..count..), 
+             size = 3, position = position_dodge(width = 0.9), vjust=-0.15)
+grid.arrange(p2)
+```
+```{r Bivariate Analysis - MBA vs Transport}
+p3 = ggplot(cars, aes(MBA,fill= Transport)) + geom_bar(stat = "count", position = "dodge") + geom_label(stat = "count", aes(label= ..count..), 
+             size = 3, position = position_dodge(width = 0.9), vjust=-0.15)
+grid.arrange(p3)
+```
+```{r Bivariate Analysis - Work Experience vs Transport}
+boxplot(Work.Exp~Transport,data=cars,horizontal=FALSE,col=c('blue','red'),main='Box Plot Work Experience vs Transport')
+```
+```{r Bivariate Analysis - Salary vs Transport}
+boxplot(Salary~Transport,data=cars,horizontal=FALSE,col=c('blue','red'),main='Box Plot Salary vs Transport')
+```
+```{r Bivariate Analysis - Distance vs Transport}
+boxplot(Distance~Transport,data=cars,horizontal=FALSE,col=c('blue','red'),main='Box Plot Distance vs Transport')
+```
+```{r Bivariate Analysis - License vs Transport}
+p4 = ggplot(cars, aes(license,fill= Transport)) + geom_bar(stat = "count", position = "dodge") + geom_label(stat = "count", aes(label= ..count..), 
+             size = 3, position = position_dodge(width = 0.9), vjust=-0.15)
+grid.arrange(p4)
+```
+```{r Correlation Plot}
+cars.num = cars[-9]
+cars.num = sapply(cars.num, as.numeric)
+cars.cor = cor(cars.num)
+corrplot.mixed(cars.cor, main = "Correlation Plot")
+```
+```{r Data Prepration - Split Data }
+set.seed(1000) #Input any random number
+x = sample.split(cars$Transport, SplitRatio = 0.7)
+cars_train = subset(cars, x == TRUE)
+dim(cars_train)
+cars_test = subset(cars, x == FALSE)
+dim(cars_test)
+
+rr.train = sum(cars_train$Transport == "Yes")/nrow(cars_train)
+rr.train
+rr.test = sum(cars_test$Transport == "Yes")/nrow(cars_test)
+rr.test
+```
+```{r Data Preparation - Smote }
+table(cars_train$Transport)
+smote.cars_train = SMOTE(Transport ~., data = cars_train, perc.over = 3500, perc.under = 500)
+nrow(smote.cars_train)
+table(smote.cars_train$Transport)
+prop.table(table(smote.cars_train$Transport))
+```
+```{r Logistic Regression }
+lg.train = smote.cars_train
+lg.test = cars_test
+lgmodel1 = glm(Transport ~ ., data = lg.train, family = binomial(link="logit"))
+summary(lgmodel1)
+```
+```{r Measure Multicollinearity on Model 1}
+vif(lgmodel1)
+```
+```{r Logistic Regression after removing Work Experience}
+lg2.train = lg.train[,-5]
+
+lgmodel2 = glm(Transport ~ ., data = lg2.train, family = binomial(link="logit"))
+summary(lgmodel2)
+```
+```{r Measure Multicollinearity on Model 2}
+vif(lgmodel2)
+```
+```{r Logistic Regression after removing Distance}
+lg3.train = lg2.train[,-6]
+
+lgmodel3 = glm(Transport ~ ., data = lg3.train, family = binomial(link="logit"))
+summary(lgmodel3)
+
+```
+```{r Measure Multicollinearity on Model 3}
+vif(lgmodel3)
+```
+Prediction on Test Data 
+```{r }
+lg.test$prd_lg3 = predict(lgmodel3, lg.test[1:8],type="response")
+lg.test$class_lg3 = floor(lg.test$prd_lg3 +0.5)
+
+# convert to factor
+lg.test$class_lg3 = factor(lg.test$class_lg3, labels = c("No","Yes"))
+confusionMatrix(lg.test$class_lg3, lg.test$Transport)
+
+```
+KNN Model
+```{r }
+### Creating the Train and Test Data
+knn.traindata = smote.cars_train
+knn.testdata = cars_test  
+
+### Training Data
+knn.traindata$Age = as.numeric(knn.traindata$Age)
+knn.traindata$Gender = as.numeric(knn.traindata$Gender)
+knn.traindata$Engineer = as.numeric(knn.traindata$Engineer)
+knn.traindata$MBA = as.numeric(knn.traindata$MBA)
+knn.traindata$Work.Exp = as.numeric(knn.traindata$Work.Exp)
+knn.traindata$license = as.numeric(knn.traindata$license)
+knn.traindata$Transport = as.numeric(knn.traindata$Transport)
+str(knn.traindata)
+### Test Data
+knn.testdata$Age = as.numeric(knn.testdata$Age)
+knn.testdata$Gender = as.numeric(knn.testdata$Gender)
+knn.testdata$Engineer = as.numeric(knn.testdata$Engineer)
+knn.testdata$MBA = as.numeric(knn.testdata$MBA)
+knn.testdata$Work.Exp = as.numeric(knn.testdata$Work.Exp)
+knn.testdata$license = as.numeric(knn.testdata$license)
+knn.testdata$Transport = as.numeric(knn.testdata$Transport)
+str(knn.testdata)
+```
+Train KNN Model
+```{r }
+cars.trainlabel = knn.traindata[,9]
+cars.testlabel = knn.testdata[,9]
+
+knn.traindata= knn.traindata[,-9]
+knn.testdata= knn.testdata[,-9]
+
+cars.testlabel.pred = knn(train = knn.traindata, test = knn.testdata, cl = cars.trainlabel, k =3)
+```
+Evaluate KNN Model with Confusion Matrix
+```{r }
+# Convert to Factor Type
+cars.testlabel = as.factor(cars.testlabel)
+cars.testlabel = factor(cars.testlabel, labels = c ("No","Yes"))
+cars.testlabel.pred = factor(cars.testlabel.pred, labels = c ("No","Yes"))
+# COnfusion Matrix
+confusionMatrix(cars.testlabel.pred,cars.testlabel)
+```
+Naive Bayes Model
+```{r }
+### Creating the Train and Test Data
+nb.cars.train = smote.cars_train
+nb.cars.test = cars_test
+```
+Train the Naive Bayes Model
+```{r }
+nb_cars<-naiveBayes(x=nb.cars.train[,1:8], y=as.factor(nb.cars.train[,9]))
+
+pred_nb<-predict(nb_cars,newdata = nb.cars.test[,1:8])
+
+```
+Evaluate Naive Bayes Model with Confusion Matrix
+```{r }
+
+confusionMatrix(pred_nb,nb.cars.test[,9])
+
+```
+Bagging Model
+```{r }
+### Creating the Train and Test Data
+bag.cars.train = smote.cars_train
+bag.cars.test = cars_test
+```
+Train the Bagging Model
+```{r }
+cars.bagging = bagging(Transport ~ ., data = bag.cars.train, control = rpart.control(maxdepth=5, minsplit=4), coob =TRUE)
+cars.bagging
+```
+Evaluate Bagging Model with Confusion Matrix
+```{r }
+bag.cars.test$pred_bag = predict(cars.bagging,bag.cars.test)
+
+confusionMatrix(bag.cars.test$pred_bag,bag.cars.test$Transport)
+```
+Boosting Model - GBM
+```{r }
+### Creating the Train and Test Data
+boost.cars.train = smote.cars_train
+boost.cars.train$Transport = ifelse(boost.cars.train$Transport == "Yes",1,0)
+
+boost.cars.test = cars_test
+boost.cars.test$Transport = ifelse(boost.cars.test$Transport == "Yes",1,0)
+
+```
+Train the Boosting Model
+```{r }
+cars.gbm = gbm(
+  formula = Transport ~ .,
+  distribution = "bernoulli",#we are using bernoulli because we are doing a logistic and want probabilities
+  data = boost.cars.train,
+  n.trees = 10000, #these are the number of stumps
+  interaction.depth = 1,#number of splits it has to perform on a tree (starting from a single node)
+  shrinkage = 0.001,#shrinkage is used for reducing, or shrinking the impact of each additional fitted base-learner(tree)
+  cv.folds = 5,#cross validation folds
+  n.cores = NULL, # will use all cores by default
+  verbose = FALSE#after every tree/stump it is going to show the error and how it is changing
+)
+```
+Evaluate Boosting Model with Confusion Matrix
+```{r }
+boost.cars.test$pred_boost = predict(cars.gbm, boost.cars.test, type="response")
+
+boost.cars.test$pred_boost = floor(boost.cars.test$pred_boost+0.5)
+
+boost.cars.test$Transport = as.factor(boost.cars.test$Transport)
+boost.cars.test$Transport = factor(boost.cars.test$Transport, labels = c ("No","Yes"))
+
+boost.cars.test$pred_boost = as.factor(boost.cars.test$pred_boost)
+boost.cars.test$pred_boost = factor(boost.cars.test$pred_boost, labels = c ("No","Yes"))
+
+confusionMatrix(boost.cars.test$pred_boost, boost.cars.test$Transport)
+
+```
